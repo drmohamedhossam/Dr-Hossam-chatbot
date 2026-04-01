@@ -203,28 +203,41 @@ export default function DrHossamChatbot() {
     setLoading(true);
 
     try {
-      const geminiMessages = newMessages.map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
+      const allMessages = [
+        {
+          role: "user",
+          parts: [{ text: SYSTEM_PROMPT }]
+        },
+        {
+          role: "model", 
+          parts: [{ text: "فهمت! أنا مساعد د. محمد حسام وهساعد المرضى." }]
+        },
+        ...newMessages.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        }))
+      ];
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: geminiMessages,
+            contents: allMessages,
             generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
           }),
         }
       );
 
       const data = await response.json();
-      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "عذرًا، حدث خطأ. حاول مرة تانية.";
-      setMessages([...newMessages, { role: "assistant", content: reply }]);
-    } catch {
+      if (data?.error) {
+        setMessages([...newMessages, { role: "assistant", content: "عذرًا، حدث خطأ. اتصل بينا على 01553002461" }]);
+      } else {
+        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "عذرًا، حاول مرة تانية.";
+        setMessages([...newMessages, { role: "assistant", content: reply }]);
+      }
+    } catch (err) {
       setMessages([...newMessages, { role: "assistant", content: "عذرًا، في مشكلة في الاتصال. اتصل بينا على 01553002461" }]);
     } finally {
       setLoading(false);
