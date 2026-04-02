@@ -166,8 +166,6 @@ const SYSTEM_PROMPT = `أنت مساعد ذكي لعيادة د. محمد حسا
 - ردودك مختصرة وواضحة (3-5 جمل)
 - ذكّر بإمكانية الحجز على 01553002461 في نهاية معظم الردود`;
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
 const quickReplies = [
   "أنا حاسس بقلق مستمر",
   "عايز أعرف عن الكتاب",
@@ -203,38 +201,30 @@ export default function DrHossamChatbot() {
     setLoading(true);
 
     try {
-      const allMessages = [
-        {
-          role: "user",
-          parts: [{ text: SYSTEM_PROMPT }]
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
         },
-        {
-          role: "model", 
-          parts: [{ text: "فهمت! أنا مساعد د. محمد حسام وهساعد المرضى." }]
-        },
-        ...newMessages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        }))
-      ];
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: allMessages,
-            generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
-          }),
-        }
-      );
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1024,
+          system: SYSTEM_PROMPT,
+          messages: newMessages.map((m) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          })),
+        }),
+      });
 
       const data = await response.json();
       if (data?.error) {
         setMessages([...newMessages, { role: "assistant", content: "عذرًا، حدث خطأ. اتصل بينا على 01553002461" }]);
       } else {
-        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "عذرًا، حاول مرة تانية.";
+        const reply = data?.content?.[0]?.text || "عذرًا، حاول مرة تانية.";
         setMessages([...newMessages, { role: "assistant", content: reply }]);
       }
     } catch (err) {
